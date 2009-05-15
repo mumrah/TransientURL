@@ -1,0 +1,3 @@
+A url-shortener that expires after being accessed just once. When you visit the
+shortened url, instead of getting redirected, you get piped the contents of that
+url. This keeps the location of your secret data slightly more secure.
