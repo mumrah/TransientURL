@@ -89,12 +89,15 @@ class TransientURL(object):
         return out
     index.exposed = True
     def create(self,url=None):
+        if not url:
+            return "<pre>You did not specify a URL</pre>"
         key = FileKey()
         key.put(url)
+        hostname = "%(server.socket_host)s:%(server.socket_port)s" % cherrypy.config
         out = """
         <h3>Here is your URL, it's only good for one use, so use it wisely!</h3>
-        <a href="http://%(base_url)s/get/%(key)s">http://%(base_url)s/get/%(key)s</a>
-        """ % {'base_url':"localhost:8080",'key':key.key}
+        <a href="http://%(hostname)s/get/%(key)s">http://%(hostname)s/get/%(key)s</a>
+        """ % {'hostname':hostname,'key':key.key}
         return out
     create.exposed = True
     def get(self,key=None):
@@ -117,7 +120,7 @@ class TransientURL(object):
     get.exposed = True
 
 if __name__ == "__main__":
-    cherrypy.quickstart(TransientURL())
+    cherrypy.quickstart(TransientURL(),config='cherrypy.conf')
 
 """
 David Arthur, 2009
