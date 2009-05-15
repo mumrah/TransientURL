@@ -32,6 +32,8 @@ class FileKey(Key):
         key file to ensure only one person can access it at a time (and therefor
         maintain isolation and consistancy).
         """
+        if not os.path.exists(self.fname):
+            return None
         fp = file(self.fname,'r')
         fcntl.flock(fp,fcntl.LOCK_EX)
         key_dict = pickle.load(fp) 
@@ -68,3 +70,45 @@ class FileKey(Key):
         return "%08x"%random.randint(XMIN,XMAX)
 
 
+class TransientURL(object):
+    def index(self):
+        out = """
+        <h3>Enter super-secret url</h3>
+        <form method="POST" action="create">
+        <input type="text" name="url" value="http://example.com"/>
+        <button type="submit">submit</button>
+        </form>
+        """
+        return out
+    index.exposed = True
+    def create(self,url=None):
+        key = FileKey()
+        key.put(url)
+        out = """
+        <h3>Here is your URL, it's only good for one use, so use it wisely!</h3>
+        <a href="http://%(base_url)s/get/%(key)s">http://%(base_url)s/get/%(key)s</a>
+        """ % {'base_url':"localhost:8080",'key':key.key}
+        return out
+    create.exposed = True
+    def get(self,key=None):
+        key = FileKey(key)
+        url = key.get()
+        if not url:
+            return "<pre>Not Found</pre>"
+        fp = urllib2.urlopen(url)
+        for k in fp.headers:
+            cherrypy.response.headers[k] = fp.headers[k]
+        cherrypy.response.headers['Pragma'] = "no-cache"
+        cherrypy.response.headers['Cache-Control'] = "no-cache"
+        data = fp.read()
+        fp.close()
+        return data
+    get.exposed = True
+
+if __name__ == "__main__":
+    cherrypy.quickstart(TransientURL())
+
+"""
+David Arthur, 2009
+mumrah@gmail.com
+"""
