@@ -21,6 +21,7 @@ class Key:
 class FileKey(Key):
     "Store key/values using files"
     def __init__(self,key=''):
+        self._checkdirs()
         if not key:
             self.new()
         else:
@@ -68,6 +69,12 @@ class FileKey(Key):
             md5.new(SALT+self.key).hexdigest() )
     def _rand(self):
         return "%08x"%random.randint(XMIN,XMAX)
+    def _checkdirs(self):
+        if not os.path.exists(KEYBASE):
+            os.mkdir(KEYBASE)
+        for i in range(NDIR):
+            if not os.path.exists("%s/%s"%(KEYBASE,i)):
+                os.mkdir("%s/%s"%(KEYBASE,i))
 
 
 class TransientURL(object):
@@ -91,6 +98,10 @@ class TransientURL(object):
         return out
     create.exposed = True
     def get(self,key=None):
+        """
+        Retrieves the contents of the transient URL. Headers are passed through,
+        as well as the content.
+        """
         key = FileKey(key)
         url = key.get()
         if not url:
