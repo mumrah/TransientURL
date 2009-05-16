@@ -88,7 +88,7 @@ class TransientURL(object):
         """
         return out
     index.exposed = True
-    def create(self,url=None):
+    def create(self,url=None,output="html"):
         if not url:
             return "<pre>You did not specify a URL</pre>"
         key = FileKey()
@@ -97,10 +97,13 @@ class TransientURL(object):
             hostname = cherrypy.config['turl.hostname']
         else:
             hostname = "%(server.socket_host)s:%(server.socket_port)s" % cherrypy.config
-        out = """
-        <h3>Here is your URL, it's only good for one use, so use it wisely!</h3>
-        <a href="http://%(hostname)s/get/%(key)s">http://%(hostname)s/get/%(key)s</a>
-        """ % {'hostname':hostname,'key':key.key}
+        if output == "text":
+            out = "http://%(hostname)s/get/%(key)s"%{'hostname':hostname,'key':key.key}
+        else: 
+            out = """
+            <h3>Here is your URL, it's only good for one use, so use it wisely!</h3>
+            <a href="http://%(hostname)s/get/%(key)s">http://%(hostname)s/get/%(key)s</a>
+            """ % {'hostname':hostname,'key':key.key}
         return out
     create.exposed = True
     def get(self,key=None):
@@ -112,7 +115,10 @@ class TransientURL(object):
         url = key.get()
         if not url:
             return "<pre>Not Found</pre>"
-        fp = urllib2.urlopen(url)
+        try:
+            fp = urllib2.urlopen(url)
+        except:
+            return "<pre>There was an error</pre>"
         for k in fp.headers:
             cherrypy.response.headers[k] = fp.headers[k]
         cherrypy.response.headers['Pragma'] = "no-cache"
