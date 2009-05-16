@@ -3,3 +3,6 @@ server.socket_host = "127.0.0.1"
 server.socket_port = 8080
 server.thread_pool = 10
 turl.hostname      = "localhost:8080"
+aws.domain         = "turl"
+aws.access_key     = "<AWS_ACCESS_KEY_ID>"
+aws.secret_key     = "<AWS_SECRET_ACCESS_KEY>"

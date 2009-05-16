@@ -1,4 +1,4 @@
-import cherrypy
+import cherrypy,boto
 import fcntl,md5,os,random,time,urllib2
 import cPickle as pickle
 
@@ -9,8 +9,15 @@ NDIR = 4
 DX = int(1.*(XMAX-XMIN)/NDIR)
 SALT = "NaCl"
 
+#Abstract class for accessing stored key/url pairs
 class Key:
-    "Abstract class for accessing stored key/url pairs"
+    @staticmethod
+    def create(type='FileKey',args=None):
+        "Factory for Key subclasses. I hate calling it that.. too Java-ish"
+        if type in globals():
+            if issubclass(globals()[type],Key):
+                return globals()[type](args)
+    # These don't do anything, they are only here for docstrings
     def get(self):
         "Returns the value associate with this key"
     def put(self,url):
@@ -76,6 +83,42 @@ class FileKey(Key):
             if not os.path.exists("%s/%s"%(KEYBASE,i)):
                 os.mkdir("%s/%s"%(KEYBASE,i))
 
+class SDBKey(Key):
+    "Store key/values in Amazon SimpleDB" 
+    def __init__(self,key=''):
+        sdb = boto.connect_sdb(
+                cherrypy.config['aws.access_key'],
+                cherrypy.config['aws.secret_key'])
+        if not sdb.get_domain('turl'):
+            sdb.create_domain('turl')
+        self.domain = sdb.get_domain('turl')
+        if not key:
+            self.new()
+        else:
+            self.key = key
+            self.sdbkey = self._loc()
+    def new(self):
+        self.key = self._rand()
+        self.sdbkey = self._loc()
+        while self.domain.get_item(self.sdbkey):
+            self.key = self._rand()
+            self.sdbkey = self._loc()
+        self.sdbitem = self.domain.new_item(self.sdbkey)
+    def get(self):
+        item = self.domain.get_item(self.sdbkey)
+        if not item:
+            return None
+        else:
+            return item['url']
+    def put(self,url):
+        self.sdbitem['url'] = url
+        self.sdbitem['created'] = time.time()
+        self.sdbitem.save()
+    def _loc(self):
+        return "%s" % md5.new(SALT+self.key).hexdigest()
+    def _rand(self):
+        return "%08x"%random.randint(XMIN,XMAX)
+
 
 class TransientURL(object):
     def index(self):
@@ -91,7 +134,7 @@ class TransientURL(object):
     def create(self,url=None,output="html"):
         if not url:
             return "<pre>You did not specify a URL</pre>"
-        key = FileKey()
+        key = Key.create('SDBKey')
         key.put(url)
         if cherrypy.config.has_key('turl.hostname'):
             hostname = cherrypy.config['turl.hostname']
@@ -111,7 +154,7 @@ class TransientURL(object):
         Retrieves the contents of the transient URL. Headers are passed through,
         as well as the content.
         """
-        key = FileKey(key)
+        key = Key.create('SDBKey',key)
         url = key.get()
         if not url:
             return "<pre>Not Found</pre>"
